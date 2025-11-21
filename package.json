@@ -1,0 +1,27 @@
+{
+  "name": "ai-reseller-saas",
+  "version": "1.0.0",
+  "description": "AI Model Reseller API - OpenRouter Proxy with Billing",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "deploy": "turbo run deploy",
+    "db:migrate": "cd supabase && npx supabase db push",
+    "db:reset": "cd supabase && npx supabase db reset"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "typescript": "^5.3.3",
+    "prettier": "^3.2.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
