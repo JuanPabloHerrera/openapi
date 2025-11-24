@@ -36,7 +36,13 @@ export async function proxyToOpenRouter(
   const model = requestBody.model;
 
   if (!model) {
-    return c.json({ error: 'Model parameter is required' }, 400);
+    return c.json({
+      error: {
+        message: 'Model parameter is required',
+        type: 'invalid_request_error',
+        code: 400,
+      }
+    }, 400);
   }
 
   // Estimate cost before making request (optional pre-check)
@@ -57,14 +63,22 @@ export async function proxyToOpenRouter(
     .single();
 
   if (balanceError || !balance) {
-    return c.json({ error: 'Failed to check balance' }, 500);
+    return c.json({
+      error: {
+        message: 'Failed to check balance',
+        type: 'api_error',
+        code: 500,
+      }
+    }, 500);
   }
 
   if (balance.credits < estimatedCost) {
     return c.json({
-      error: 'Insufficient credits',
-      required: estimatedCost,
-      available: balance.credits
+      error: {
+        message: `Insufficient credits. Required: $${estimatedCost.toFixed(6)}, Available: $${balance.credits.toFixed(6)}`,
+        type: 'insufficient_quota',
+        code: 'insufficient_credits',
+      }
     }, 402);
   }
 
@@ -88,6 +102,29 @@ export async function proxyToOpenRouter(
       const errorText = await response.text();
       console.error('OpenRouter error:', errorText);
 
+      // Parse error response if it's JSON
+      let errorDetails = errorText;
+      let errorMessage = 'OpenRouter request failed';
+      let errorType = 'api_error';
+      let errorCode = null;
+
+      try {
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error) {
+          // OpenRouter/OpenAI error format
+          if (typeof errorJson.error === 'string') {
+            errorMessage = errorJson.error;
+          } else if (errorJson.error.message) {
+            errorMessage = errorJson.error.message;
+            errorType = errorJson.error.type || errorType;
+            errorCode = errorJson.error.code || errorCode;
+          }
+        }
+      } catch (e) {
+        // Not JSON, use text as-is
+        errorMessage = errorText;
+      }
+
       // Log failed request
       await logUsage(supabase, {
         userId: user.id,
@@ -104,9 +141,13 @@ export async function proxyToOpenRouter(
         responseMetadata: { error: errorText },
       });
 
+      // Return OpenAI-compatible error format for n8n compatibility
       return c.json({
-        error: 'OpenRouter request failed',
-        details: errorText
+        error: {
+          message: errorMessage,
+          type: errorType,
+          code: errorCode || response.status,
+        }
       }, response.status >= 400 && response.status < 600 ? response.status as any : 500);
     }
 
@@ -178,8 +219,11 @@ export async function proxyToOpenRouter(
     });
 
     return c.json({
-      error: 'Failed to proxy request',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      error: {
+        message: error instanceof Error ? error.message : 'Failed to proxy request',
+        type: 'api_error',
+        code: 500,
+      }
     }, 500);
   }
 }

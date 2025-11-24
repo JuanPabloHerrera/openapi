@@ -2,14 +2,16 @@ name = "ai-reseller-worker"
 main = "src/index.ts"
 compatibility_date = "2024-01-01"
 
-[vars]
-# Non-sensitive environment variables
-MARKUP_PERCENTAGE = "20"
+# Note: For local development, secrets are loaded from ../../.env.local
+# For production, use: wrangler secret put SECRET_NAME
 
-# Secrets (set via: wrangler secret put SECRET_NAME)
-# SUPABASE_URL - set via secrets
-# SUPABASE_SERVICE_ROLE_KEY - set via secrets
-# OPENROUTER_API_KEY - set via secrets
+[vars]
+# All variables (including MARKUP_PERCENTAGE) are now loaded from ../../.env.local
+# This keeps all configuration in one place
 
 [build]
 command = "npm run build"
+
+[dev]
+port = 8787
+ip = "0.0.0.0"

@@ -24,26 +24,37 @@ These variables are prefixed with `NEXT_PUBLIC_` and are safe to expose:
 
 ### Storage Locations
 
-1. **Dashboard (Next.js)**: Store secrets in `.env.local` or `.env.production`
-2. **Cloudflare Worker**: Use `wrangler secret put` command, NOT `.dev.vars` for production
+**All secrets are stored in ONE file: `.env.local` in the project root**
+
+This single file is used by both:
+1. **Dashboard (Next.js)**: Reads `.env.local` directly
+2. **Cloudflare Worker**: Auto-generates `.dev.vars` from `.env.local` via predev script
+
+**For Production:**
+- Dashboard: Use `.env.production` or platform environment variables
+- Worker: Use `wrangler secret put` command (NEVER commit secrets)
 
 ```bash
 # Setting Cloudflare Worker secrets for production
 wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 wrangler secret put OPENROUTER_API_KEY
 wrangler secret put SUPABASE_URL
+wrangler secret put ALLOWED_ORIGINS
 ```
-
-3. **Local Development**: Use `.dev.vars` for worker (NEVER commit this file)
 
 ### Git Protection
 
 The following files are gitignored to prevent secret exposure:
 
-- `.env`, `.env.local`, `.env*.local`
-- `.env.production`
-- `.dev.vars` (Cloudflare Worker secrets)
-- `apps/worker/.dev.vars`
+- `.env.local` - **PRIMARY secrets file** (both Dashboard & Worker)
+- `.env`, `.env*.local` - All environment files
+- `.env.production` - Production secrets
+- `apps/worker/.dev.vars` - Auto-generated from `.env.local` (also gitignored)
+
+**How It Works:**
+1. You only edit `.env.local` in the project root
+2. When you run `npm run dev` in the worker, it automatically generates `.dev.vars` from `.env.local`
+3. Both files are gitignored, so secrets never get committed
 
 **IMPORTANT**: Always verify secrets are not tracked before committing:
 ```bash

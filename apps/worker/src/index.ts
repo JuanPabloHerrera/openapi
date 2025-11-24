@@ -5,6 +5,7 @@ import { authenticateRequest } from './middleware/auth';
 import { checkRateLimit } from './middleware/rateLimit';
 import { proxyToOpenRouter } from './handlers/proxy';
 import { healthCheck } from './handlers/health';
+import { listModels } from './handlers/models';
 
 export interface Env {
   SUPABASE_URL: string;
@@ -53,8 +54,31 @@ app.use('*', async (c, next) => {
   c.res.headers.set('Access-Control-Allow-Credentials', 'true');
 });
 
+// Root endpoint - homepage
+app.get('/', (c) => {
+  return c.json({
+    name: 'OpenAPI Reseller Worker',
+    version: '1.0.0',
+    status: 'running',
+    markup: '5%',
+    endpoints: {
+      health: '/health',
+      models: '/v1/models',
+      chat: '/v1/chat/completions',
+    },
+    docs: 'Use this API with n8n or any OpenAI-compatible client',
+    n8n_setup: {
+      base_url: 'http://localhost:8787/v1',
+      api_key: 'Get from dashboard at http://localhost:3000/dashboard/keys',
+    },
+  });
+});
+
 // Health check endpoint
 app.get('/health', healthCheck);
+
+// List available models - required for OpenAI-compatible clients like n8n
+app.get('/v1/models', listModels);
 
 // Main proxy endpoint - supports both /v1/chat/completions and direct OpenRouter paths
 app.post('/v1/*', async (c) => {
@@ -62,11 +86,23 @@ app.post('/v1/*', async (c) => {
     // Authenticate and get user
     const authResult = await authenticateRequest(c);
     if (!authResult.success) {
-      return c.json({ error: authResult.error }, 401);
+      return c.json({
+        error: {
+          message: authResult.error || 'Authentication failed',
+          type: 'invalid_request_error',
+          code: 'invalid_api_key',
+        }
+      }, 401);
     }
 
     if (!authResult.user || !authResult.apiKeyId) {
-      return c.json({ error: 'Authentication failed' }, 401);
+      return c.json({
+        error: {
+          message: 'Authentication failed',
+          type: 'invalid_request_error',
+          code: 'invalid_api_key',
+        }
+      }, 401);
     }
 
     // Type assertions after validation
@@ -76,7 +112,13 @@ app.post('/v1/*', async (c) => {
     // Check rate limits
     const rateLimitResult = await checkRateLimit(c, user.id);
     if (!rateLimitResult.success) {
-      return c.json({ error: rateLimitResult.error }, 429);
+      return c.json({
+        error: {
+          message: rateLimitResult.error || 'Rate limit exceeded',
+          type: 'rate_limit_error',
+          code: 'rate_limit_exceeded',
+        }
+      }, 429);
     }
 
     // Proxy request to OpenRouter
@@ -85,8 +127,11 @@ app.post('/v1/*', async (c) => {
   } catch (error) {
     console.error('Request error:', error);
     return c.json({
-      error: 'Internal server error',
-      message: error instanceof Error ? error.message : 'Unknown error'
+      error: {
+        message: error instanceof Error ? error.message : 'Internal server error',
+        type: 'api_error',
+        code: 500,
+      }
     }, 500);
   }
 });

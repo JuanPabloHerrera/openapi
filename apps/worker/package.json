@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
+    "predev": "node load-env.js",
     "dev": "wrangler dev",
+    "predeploy": "echo 'Remember to set secrets with: wrangler secret put SECRET_NAME'",
     "deploy": "wrangler deploy",
     "build": "tsc",
     "lint": "eslint src --ext .ts",

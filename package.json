@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "AI Model Reseller API - OpenRouter Proxy with Billing",
   "private": true,
+  "packageManager": "npm@10.0.0",
   "workspaces": [
     "apps/*",
     "packages/*"
