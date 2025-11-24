@@ -50,9 +50,21 @@ export default function ApiKeysPage() {
     setCreating(true)
 
     try {
+      const supabase = createSupabaseClient()
+      const { data: { session } } = await supabase.auth.getSession()
+
+      if (!session) {
+        alert('Not authenticated')
+        setCreating(false)
+        return
+      }
+
       const response = await fetch('/api/keys/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
         body: JSON.stringify({ name: newKeyName }),
       })
 

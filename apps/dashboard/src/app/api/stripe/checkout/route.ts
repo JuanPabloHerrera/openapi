@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 import { CREDIT_PACKS } from '@/lib/stripe'
 
 export async function POST(req: NextRequest) {
   try {
     const { packId } = await req.json()
+    const supabase = getSupabaseAdmin()
 
     // Get user from session
     const authHeader = req.headers.get('authorization')
@@ -14,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
 
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -27,7 +28,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create or get Stripe customer
-    const { data: userData } = await supabaseAdmin
+    const { data: userData } = await supabase
       .from('users')
       .select('email')
       .eq('id', user.id)
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     let customerId: string | undefined
 
     // Check if user has existing Stripe customer ID
-    const { data: existingSubscription } = await supabaseAdmin
+    const { data: existingSubscription } = await supabase
       .from('subscriptions')
       .select('stripe_customer_id')
       .eq('user_id', user.id)

@@ -38,7 +38,9 @@ app.post('/v1/*', async (c) => {
       return c.json({ error: 'Authentication failed' }, 401);
     }
 
-    const { user, apiKeyId } = authResult;
+    // Type assertions after validation
+    const user = authResult.user!;
+    const apiKeyId = authResult.apiKeyId!;
 
     // Check rate limits
     const rateLimitResult = await checkRateLimit(c, user.id);

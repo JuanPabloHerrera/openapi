@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 import { createHash } from 'crypto'
 
 export async function POST(req: NextRequest) {
   try {
     const { name } = await req.json()
+    const supabase = getSupabaseAdmin()
 
     // Get authenticated user
     const authHeader = req.headers.get('authorization')
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
     }
 
     const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token)
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
 
     if (userError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     const keyPrefix = apiKey.substring(0, 12) // e.g., "sk_live_abc1"
 
     // Store in database
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await supabase
       .from('api_keys')
       .insert({
         user_id: user.id,

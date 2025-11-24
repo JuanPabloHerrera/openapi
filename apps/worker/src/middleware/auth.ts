@@ -44,6 +44,8 @@ export async function authenticateRequest(c: Context<{ Bindings: Env }>): Promis
     .eq('key_hash', keyHash)
     .single();
 
+  console.log('Auth Debug - Lookup result:', { data: apiKeyData, error: keyError });
+
   if (keyError || !apiKeyData) {
     return { success: false, error: 'Invalid API key' };
   }
@@ -69,6 +71,9 @@ export async function authenticateRequest(c: Context<{ Bindings: Env }>): Promis
     return { success: false, error: 'User not found' };
   }
 
+  // Type assertion for userData
+  const user = userData as { id: string; email: string };
+
   // Update last_used_at
   supabase
     .from('api_keys')
@@ -79,8 +84,8 @@ export async function authenticateRequest(c: Context<{ Bindings: Env }>): Promis
   return {
     success: true,
     user: {
-      id: userData.id,
-      email: userData.email,
+      id: user.id,
+      email: user.email,
     },
     apiKeyId: apiKeyData.id,
   };

@@ -188,7 +188,7 @@ Update the markup percentage:
 
 ```sql
 UPDATE pricing_rules
-SET markup_percentage = 25.00  -- 25% markup
+SET markup_percentage = 2.00  -- 2% markup
 WHERE model_pattern = '*';
 ```
 
@@ -270,7 +270,7 @@ vercel logs
 ### Calculating Your Markup
 
 1. Check OpenRouter's pricing: openrouter.ai/models
-2. Decide your margin (e.g., 20-40%)
+2. Decide your margin (e.g., 2-4%)
 3. Consider your costs:
    - Cloudflare Worker: ~$5/month (beyond free tier)
    - Supabase: $25/month (or free tier)

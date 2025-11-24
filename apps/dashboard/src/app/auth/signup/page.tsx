@@ -20,7 +20,8 @@ export default function SignupPage() {
 
     const supabase = createSupabaseClient()
 
-    const { error } = await supabase.auth.signUp({
+    console.log('Attempting signup...')
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -30,11 +31,23 @@ export default function SignupPage() {
       },
     })
 
+    console.log('Signup response:', { data, error })
+
     if (error) {
+      console.error('Signup error:', error)
       setError(error.message)
       setLoading(false)
-    } else {
+    } else if (data.user && !data.session) {
+      console.log('Email confirmation required')
+      setError('Please check your email to confirm your account')
+      setLoading(false)
+    } else if (data.session) {
+      console.log('Signup successful, redirecting to dashboard...')
       router.push('/dashboard')
+    } else {
+      console.error('Unexpected signup state:', data)
+      setError('Signup succeeded but no session created. Please try logging in.')
+      setLoading(false)
     }
   }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { stripe } from '@/lib/stripe'
-import { supabaseAdmin } from '@/lib/supabase'
+import { getSupabaseAdmin } from '@/lib/supabase'
 import Stripe from 'stripe'
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!
@@ -69,14 +69,16 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
     return
   }
 
+  const supabase = getSupabaseAdmin()
+
   // Add credits to user balance
-  await supabaseAdmin.rpc('add_credits', {
+  await supabase.rpc('add_credits', {
     p_user_id: userId,
     p_amount: credits,
   })
 
   // Log the payment
-  await supabaseAdmin.from('payments').insert({
+  await supabase.from('payments').insert({
     user_id: userId,
     stripe_payment_intent_id: session.payment_intent as string,
     amount_cents: session.amount_total || 0,
@@ -97,8 +99,10 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
     return
   }
 
+  const supabase = getSupabaseAdmin()
+
   // Update or create subscription record
-  await supabaseAdmin.from('subscriptions').upsert({
+  await supabase.from('subscriptions').upsert({
     user_id: userId,
     stripe_subscription_id: subscription.id,
     stripe_customer_id: subscription.customer as string,
@@ -112,21 +116,24 @@ async function handleSubscriptionUpdate(subscription: Stripe.Subscription) {
 }
 
 async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
-  await supabaseAdmin
+  const supabase = getSupabaseAdmin()
+  await supabase
     .from('subscriptions')
     .update({ status: 'canceled' })
     .eq('stripe_subscription_id', subscription.id)
 }
 
 async function handlePaymentSucceeded(paymentIntent: Stripe.PaymentIntent) {
-  await supabaseAdmin
+  const supabase = getSupabaseAdmin()
+  await supabase
     .from('payments')
     .update({ status: 'succeeded' })
     .eq('stripe_payment_intent_id', paymentIntent.id)
 }
 
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
-  await supabaseAdmin
+  const supabase = getSupabaseAdmin()
+  await supabase
     .from('payments')
     .update({ status: 'failed' })
     .eq('stripe_payment_intent_id', paymentIntent.id)

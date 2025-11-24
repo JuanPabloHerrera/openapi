@@ -107,7 +107,7 @@ export async function proxyToOpenRouter(
       return c.json({
         error: 'OpenRouter request failed',
         details: errorText
-      }, response.status as any);
+      }, response.status >= 400 && response.status < 600 ? response.status as any : 500);
     }
 
     const responseData: OpenRouterResponse = await response.json();
