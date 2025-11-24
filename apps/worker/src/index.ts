@@ -11,16 +11,47 @@ export interface Env {
   SUPABASE_SERVICE_ROLE_KEY: string;
   OPENROUTER_API_KEY: string;
   MARKUP_PERCENTAGE: string;
+  ALLOWED_ORIGINS?: string; // Comma-separated list of allowed origins
 }
 
 const app = new Hono<{ Bindings: Env }>();
 
-// CORS middleware
-app.use('*', cors({
-  origin: '*',
-  allowMethods: ['GET', 'POST', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-}));
+// CORS middleware - restrict to specific origins
+app.use('*', async (c, next) => {
+  const origin = c.req.header('Origin');
+
+  // Default allowed origins for local development
+  const defaultOrigins = ['http://localhost:3000', 'http://localhost:3001'];
+
+  // Get additional allowed origins from environment (if set)
+  const allowedOriginsEnv = c.env.ALLOWED_ORIGINS || '';
+  const envOrigins = allowedOriginsEnv
+    ? allowedOriginsEnv.split(',').map((o: string) => o.trim())
+    : [];
+
+  const allowedOrigins = [...defaultOrigins, ...envOrigins];
+
+  // Check if origin is allowed
+  const isAllowed = !origin || allowedOrigins.includes(origin);
+
+  if (c.req.method === 'OPTIONS') {
+    return new Response(null, {
+      headers: {
+        'Access-Control-Allow-Origin': isAllowed && origin ? origin : defaultOrigins[0],
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
+
+  await next();
+
+  // Add CORS headers to response
+  c.res.headers.set('Access-Control-Allow-Origin', isAllowed && origin ? origin : '*');
+  c.res.headers.set('Access-Control-Allow-Credentials', 'true');
+});
 
 // Health check endpoint
 app.get('/health', healthCheck);

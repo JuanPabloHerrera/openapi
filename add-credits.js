@@ -11,6 +11,17 @@ envContent.split('\n').forEach(line => {
   }
 })
 
+// Get user identifier from command line
+const userIdentifier = process.argv[2]
+const amountToAdd = parseFloat(process.argv[3]) || 10.00
+
+if (!userIdentifier) {
+  console.error('❌ Please provide user ID or email as first argument')
+  console.error('Usage: node add-credits.js <user_id_or_email> [amount]')
+  console.error('Example: node add-credits.js user@example.com 25.00')
+  process.exit(1)
+}
+
 async function addCredits() {
   const supabase = createClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -23,40 +34,51 @@ async function addCredits() {
     }
   )
 
-  // Get the most recent user
-  const { data: users, error: userError } = await supabase
-    .from('users')
-    .select('id, email')
-    .order('created_at', { ascending: false })
-    .limit(1)
+  // Find user by ID or email
+  let query = supabase.from('users').select('id, email')
+
+  if (userIdentifier.includes('@')) {
+    query = query.eq('email', userIdentifier)
+  } else {
+    query = query.eq('id', userIdentifier)
+  }
+
+  const { data: users, error: userError } = await query.limit(1)
 
   if (userError) {
-    console.error('Error fetching user:', userError)
+    console.error('❌ Error fetching user:', userError)
     return
   }
 
   if (!users || users.length === 0) {
-    console.error('No users found')
+    console.error(`❌ No user found with identifier: ${userIdentifier}`)
     return
   }
 
   const user = users[0]
   console.log(`Found user: ${user.email} (${user.id})`)
+  console.log(`Adding $${amountToAdd.toFixed(2)} in credits...`)
 
-  // Add $10 in credits
-  const { data: balance, error: balanceError } = await supabase
-    .from('balances')
-    .update({ credits: 10.00 })
-    .eq('user_id', user.id)
-    .select()
+  // Use RPC function to add credits (doesn't overwrite, adds to existing)
+  const { error: addError } = await supabase.rpc('add_credits', {
+    p_user_id: user.id,
+    p_amount: amountToAdd,
+  })
 
-  if (balanceError) {
-    console.error('Error updating balance:', balanceError)
+  if (addError) {
+    console.error('❌ Error adding credits:', addError)
     return
   }
 
-  console.log('✅ Successfully added $10.00 in credits!')
-  console.log('Balance:', balance)
+  // Get updated balance
+  const { data: balance } = await supabase
+    .from('balances')
+    .select('credits')
+    .eq('user_id', user.id)
+    .single()
+
+  console.log(`✅ Successfully added $${amountToAdd.toFixed(2)} in credits!`)
+  console.log(`New balance: $${balance?.credits.toFixed(2) || '0.00'}`)
 }
 
 addCredits()

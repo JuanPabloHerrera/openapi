@@ -20,6 +20,26 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Rate limiting - max 5 keys created per hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const { data: recentKeys, error: countError } = await supabase
+      .from('api_keys')
+      .select('id')
+      .eq('user_id', user.id)
+      .gte('created_at', oneHourAgo)
+
+    if (countError) {
+      console.error('Failed to check rate limit:', countError)
+      return NextResponse.json({ error: 'Failed to check rate limit' }, { status: 500 })
+    }
+
+    if (recentKeys && recentKeys.length >= 5) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded. Maximum 5 API keys per hour.' },
+        { status: 429 }
+      )
+    }
+
     // Generate API key
     const apiKey = generateApiKey()
     const keyHash = hashKey(apiKey)

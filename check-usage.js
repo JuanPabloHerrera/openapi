@@ -11,6 +11,16 @@ envContent.split('\n').forEach(line => {
   }
 })
 
+// Get user identifier from command line
+const userIdentifier = process.argv[2]
+
+if (!userIdentifier) {
+  console.error('❌ Please provide user ID or email as argument')
+  console.error('Usage: node check-usage.js <user_id_or_email>')
+  console.error('Example: node check-usage.js user@example.com')
+  process.exit(1)
+}
+
 async function checkUsage() {
   const supabase = createClient(
     env.NEXT_PUBLIC_SUPABASE_URL,
@@ -23,35 +33,67 @@ async function checkUsage() {
     }
   )
 
-  // Get the user
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, email')
-    .order('created_at', { ascending: false })
-    .limit(1)
+  // Find user by ID or email
+  let query = supabase.from('users').select('id, email')
 
-  const userId = users[0].id
-  console.log('User ID:', userId)
+  if (userIdentifier.includes('@')) {
+    query = query.eq('email', userIdentifier)
+  } else {
+    query = query.eq('id', userIdentifier)
+  }
 
-  // Check balance
-  const { data: balance } = await supabase
+  const { data: users, error: userError } = await query.limit(1)
+
+  if (userError) {
+    console.error('❌ Error fetching user:', userError)
+    return
+  }
+
+  if (!users || users.length === 0) {
+    console.error(`❌ No user found with identifier: ${userIdentifier}`)
+    return
+  }
+
+  const user = users[0]
+  console.log(`User: ${user.email} (${user.id})`)
+  console.log()
+
+  // Get balance
+  const { data: balance, error: balanceError } = await supabase
     .from('balances')
-    .select('*')
-    .eq('user_id', userId)
+    .select('credits')
+    .eq('user_id', user.id)
     .single()
 
-  console.log('\n📊 Current Balance:')
-  console.log(JSON.stringify(balance, null, 2))
+  if (balanceError) {
+    console.error('❌ Error fetching balance:', balanceError)
+  } else {
+    console.log(`💰 Current Balance: $${balance.credits.toFixed(2)}`)
+    console.log()
+  }
 
-  // Check usage logs
-  const { data: usageLogs } = await supabase
+  // Get usage logs
+  const { data: logs, error: logsError } = await supabase
     .from('usage_logs')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
+    .limit(10)
 
-  console.log('\n📝 Usage Logs:')
-  console.log(JSON.stringify(usageLogs, null, 2))
+  if (logsError) {
+    console.error('❌ Error fetching usage logs:', logsError)
+  } else if (logs && logs.length > 0) {
+    console.log('📊 Recent Usage (last 10):')
+    logs.forEach((log, i) => {
+      console.log(`\n${i + 1}. ${new Date(log.created_at).toLocaleString()}`)
+      console.log(`   Model: ${log.model}`)
+      console.log(`   Status: ${log.status}`)
+      console.log(`   Tokens: ${log.total_tokens}`)
+      console.log(`   Cost: $${log.cost_usd.toFixed(4)}`)
+    })
+  } else {
+    console.log('ℹ️  No usage logs found')
+  }
 }
 
 checkUsage()

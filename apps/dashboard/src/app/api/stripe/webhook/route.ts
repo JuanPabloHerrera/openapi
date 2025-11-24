@@ -63,13 +63,26 @@ export async function POST(req: NextRequest) {
 async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   const userId = session.metadata?.user_id
   const credits = parseFloat(session.metadata?.credits || '0')
+  const paymentIntentId = session.payment_intent as string
 
-  if (!userId || !credits) {
+  if (!userId || !credits || !paymentIntentId) {
     console.error('Missing metadata in checkout session')
     return
   }
 
   const supabase = getSupabaseAdmin()
+
+  // Idempotency check - verify this payment hasn't been processed already
+  const { data: existingPayment } = await supabase
+    .from('payments')
+    .select('id')
+    .eq('stripe_payment_intent_id', paymentIntentId)
+    .single()
+
+  if (existingPayment) {
+    console.log(`Payment ${paymentIntentId} already processed, skipping`)
+    return
+  }
 
   // Add credits to user balance
   await supabase.rpc('add_credits', {
@@ -80,7 +93,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
   // Log the payment
   await supabase.from('payments').insert({
     user_id: userId,
-    stripe_payment_intent_id: session.payment_intent as string,
+    stripe_payment_intent_id: paymentIntentId,
     amount_cents: session.amount_total || 0,
     credits_added: credits,
     currency: session.currency?.toUpperCase() || 'USD',

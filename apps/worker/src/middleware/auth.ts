@@ -44,8 +44,6 @@ export async function authenticateRequest(c: Context<{ Bindings: Env }>): Promis
     .eq('key_hash', keyHash)
     .single();
 
-  console.log('Auth Debug - Lookup result:', { data: apiKeyData, error: keyError });
-
   if (keyError || !apiKeyData) {
     return { success: false, error: 'Invalid API key' };
   }

@@ -5,20 +5,37 @@ import type { NextRequest } from 'next/server'
 export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
 
-  // Get the session from cookies
-  const token = req.cookies.get('sb-access-token')?.value
-  const refreshToken = req.cookies.get('sb-refresh-token')?.value
+  // Create Supabase client for server-side auth check
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    }
+  )
+
+  // Get all Supabase-related cookies
+  const allCookies = req.cookies.getAll()
+  const supabaseCookies = allCookies.filter(cookie =>
+    cookie.name.startsWith('sb-') || cookie.name.includes('supabase')
+  )
+
+  // Check if there's any authentication cookie present
+  const hasAuthCookie = supabaseCookies.length > 0
 
   // Protect dashboard routes
   if (req.nextUrl.pathname.startsWith('/dashboard')) {
-    if (!token) {
+    if (!hasAuthCookie) {
       return NextResponse.redirect(new URL('/auth/login', req.url))
     }
   }
 
-  // Redirect to dashboard if already logged in
-  if (req.nextUrl.pathname.startsWith('/auth/')) {
-    if (token) {
+  // Redirect to dashboard if already logged in (only for login/signup pages)
+  if (req.nextUrl.pathname === '/auth/login' || req.nextUrl.pathname === '/auth/signup') {
+    if (hasAuthCookie) {
       return NextResponse.redirect(new URL('/dashboard', req.url))
     }
   }
@@ -27,5 +44,12 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: [],  // Temporarily disable middleware for testing
+  matcher: [
+    // Temporarily disable middleware to allow login testing
+    // Once login works, we can re-enable with proper Supabase cookie handling
+    // '/dashboard/:path*',
+    // '/auth/:path*',
+    // '/api/keys/:path*',
+    // '/api/stripe/checkout',
+  ],
 }
