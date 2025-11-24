@@ -87,12 +87,15 @@ export async function proxyToOpenRouter(
   const openRouterUrl = `https://openrouter.ai/api/v1${openRouterPath}`;
 
   try {
+    // Use configured HTTP referer or worker URL
+    const httpReferer = c.env.HTTP_REFERER || c.env.WORKER_URL || 'https://openapi-reseller.com';
+
     const response = await fetch(openRouterUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${c.env.OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://your-domain.com', // Update this
+        'HTTP-Referer': httpReferer,
         'X-Title': 'AI Reseller API',
       },
       body: JSON.stringify(requestBody),

@@ -40,6 +40,10 @@ wrangler secret put SUPABASE_SERVICE_ROLE_KEY
 wrangler secret put OPENROUTER_API_KEY
 wrangler secret put SUPABASE_URL
 wrangler secret put ALLOWED_ORIGINS
+wrangler secret put MARKUP_PERCENTAGE
+wrangler secret put WORKER_URL
+wrangler secret put DASHBOARD_URL
+wrangler secret put HTTP_REFERER
 ```
 
 ### Git Protection
@@ -82,7 +86,9 @@ git status --porcelain | grep -E "(\.env|\.dev\.vars)"
 ### 1. CORS Protection
 - Worker restricts origins to whitelisted domains
 - Configured via `ALLOWED_ORIGINS` environment variable
-- Default: `localhost:3000`, `localhost:3001` for development
+- Default: `localhost:3000`, `localhost:3001`, `localhost:8787` for development
+- Requests with unallowed origins are rejected (no fallback to wildcard)
+- Server-to-server requests (no Origin header) are allowed
 
 ### 2. Rate Limiting
 - API key creation: Max 5 keys per hour per user
@@ -93,12 +99,22 @@ git status --porcelain | grep -E "(\.env|\.dev\.vars)"
 - Idempotency check prevents duplicate payment processing
 - Payment intents are checked before adding credits
 
-### 4. Input Validation
+### 4. Security Headers
+- `X-Content-Type-Options: nosniff` - Prevents MIME type sniffing
+- `X-Frame-Options: DENY` - Prevents clickjacking attacks
+- `X-XSS-Protection: 1; mode=block` - Enables browser XSS protection
+- `Strict-Transport-Security` - Enforces HTTPS (when using HTTPS)
+- `Access-Control-Allow-Credentials: true` - Secure credential handling
+
+### 5. Input Validation
 - User authentication required for all sensitive operations
-- API key format validation (must start with `sk_`)
+- API key format validation:
+  - Must start with `sk_live_`
+  - Must be exactly 72 characters long
+  - Must contain 64 hexadecimal characters after prefix
 - Request body validation in all API routes
 
-### 5. Secure Logging
+### 6. Secure Logging
 - No API keys or secrets logged to console
 - Minimal debug information in production
 - Request/response metadata stored for audit purposes
@@ -250,18 +266,25 @@ Consider setting up alerts for:
 
 ## Production Deployment Checklist
 
-- [ ] All secrets stored in environment variables (not in code)
-- [ ] `.env.local` and `.dev.vars` in `.gitignore`
-- [ ] Cloudflare Worker secrets set via `wrangler secret put`
-- [ ] CORS configured with production domain
-- [ ] Supabase RLS policies enabled
-- [ ] HTTPS enforced for all endpoints
+- [x] All secrets stored in environment variables (not in code)
+- [x] `.env.local` and `.dev.vars` in `.gitignore`
+- [ ] Cloudflare Worker secrets set via `wrangler secret put` (see commands above)
+- [ ] CORS configured with production domain in `ALLOWED_ORIGINS`
+- [x] Supabase RLS policies enabled
+- [x] HTTPS enforced via Strict-Transport-Security header
 - [ ] Stripe webhook endpoint configured with correct secret
-- [ ] Rate limiting configured appropriately
+- [x] Rate limiting configured appropriately
 - [ ] Monitoring and logging enabled
-- [ ] Password requirements set to minimum 12 characters
-- [ ] Authentication middleware enabled
+- [x] Password requirements set to minimum 12 characters
+- [x] Authentication middleware enabled on dashboard
+- [x] Security headers configured (X-Content-Type-Options, X-Frame-Options, etc.)
+- [x] API key format validation strengthened (72 chars, hex validation)
 - [ ] Database backups configured
+- [ ] Update environment variables with production URLs:
+  - [ ] `WORKER_URL` - Your Cloudflare Worker URL
+  - [ ] `DASHBOARD_URL` - Your dashboard URL
+  - [ ] `HTTP_REFERER` - Your domain for OpenRouter requests
+  - [ ] `ALLOWED_ORIGINS` - Comma-separated production domains
 
 ## Security Contacts
 

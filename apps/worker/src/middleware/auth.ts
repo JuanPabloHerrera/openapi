@@ -24,7 +24,18 @@ export async function authenticateRequest(c: Context<{ Bindings: Env }>): Promis
   // Extract API key (supports "Bearer sk_xxx" or just "sk_xxx")
   const apiKey = authHeader.replace(/^Bearer\s+/i, '').trim();
 
+  // Validate API key format: sk_live_{64 hex characters} = 72 chars total
   if (!apiKey || !apiKey.startsWith('sk_')) {
+    return { success: false, error: 'Invalid API key format' };
+  }
+
+  if (apiKey.length !== 72) {
+    return { success: false, error: 'Invalid API key length' };
+  }
+
+  // Validate it's a proper hex string after the prefix
+  const keyParts = apiKey.match(/^sk_live_([0-9a-f]{64})$/);
+  if (!keyParts) {
     return { success: false, error: 'Invalid API key format' };
   }
 
